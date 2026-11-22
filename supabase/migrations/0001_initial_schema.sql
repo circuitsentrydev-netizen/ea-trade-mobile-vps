@@ -186,3 +186,48 @@ for delete to authenticated using (
 
 -- IMPORTANT: Never allow users to set their own role or mentor_approved flag.
 -- Provision SUPERADMIN and approve mentors through trusted server-side administration only.
+
+
+-- Avoid recursive RLS evaluation when a user reads a mentor-linked profile.
+drop policy if exists "profiles read self mentor clients or superadmin" on public.profiles;
+create or replace function public.can_view_profile(target_profile_id uuid)
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles target
+    where target.id = target_profile_id
+      and (
+        target.id = auth.uid()
+        or target.mentor_id = auth.uid()
+        or public.is_superadmin()
+      )
+  )
+$$;
+create policy "profiles read permitted relationships" on public.profiles
+for select to authenticated using (public.can_view_profile(id));
+
+-- A user must never promote themselves, approve themselves as a mentor,
+-- or change their mentor assignment through the ordinary profile update path.
+create or replace function public.protect_profile_privileges()
+returns trigger
+language plpgsql security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is not null and not public.is_superadmin() then
+    if new.role is distinct from old.role
+      or new.mentor_approved is distinct from old.mentor_approved
+      or new.mentor_id is distinct from old.mentor_id then
+      raise exception 'Role, mentor approval and mentor assignment are managed by administrators';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_profile_privileges_trigger on public.profiles;
+create trigger protect_profile_privileges_trigger
+before update on public.profiles
+for each row execute function public.protect_profile_privileges();
