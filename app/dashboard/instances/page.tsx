@@ -1,0 +1,3 @@
+import Link from "next/link";
+import { SectionPage } from "@/components/section-page";
+export default function Page(){return <SectionPage eyebrow="HOSTING" title="Robot instances" description="View and manage Expert Advisors assigned to your hosting slots."><h2 className="text-base font-semibold text-slate-100">No connected instances</h2><p className="mt-2 text-sm text-slate-400">Connect an MT5 account after authentication and secure onboarding are enabled.</p><Link href="/dashboard/instances/new" className="mt-5 inline-flex rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white">Connect a robot</Link></SectionPage>}
