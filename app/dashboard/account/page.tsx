@@ -1,0 +1,2 @@
+import { SectionPage } from "@/components/section-page";
+export default function Page(){return <SectionPage eyebrow="PERSONAL SETTINGS" title="Account & security" description="Manage your profile, sign-in details and connected account preferences."><h2 className="text-base font-semibold text-slate-100">Account settings</h2><p className="mt-2 text-sm leading-6 text-slate-400">Connected MT5 passwords will be encrypted server-side and will never be shown to mentors.</p></SectionPage>}
