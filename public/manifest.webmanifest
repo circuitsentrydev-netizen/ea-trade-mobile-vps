@@ -1,0 +1,10 @@
+{
+  "name": "EA Trade Mobile VPS",
+  "short_name": "EA Trade VPS",
+  "description": "Mobile control panel for MetaTrader Expert Advisor hosting.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0E14",
+  "theme_color": "#0B0E14",
+  "orientation": "portrait"
+}
