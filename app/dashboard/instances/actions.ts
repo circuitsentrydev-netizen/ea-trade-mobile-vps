@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { encryptMt5Password } from "@/lib/security/encryption";
+import { encryptMt5Password, type EncryptedSecret } from "@/lib/security/encryption";
 
 function fail(message: string): never {
   redirect(`/dashboard/instances/new?error=${encodeURIComponent(message)}`);
@@ -75,7 +75,7 @@ export async function createMt5AccountAction(formData: FormData) {
     }
   }
 
-  let encrypted;
+  let encrypted: EncryptedSecret;
   try { encrypted = encryptMt5Password(password); }
   catch { fail("The MT5 encryption key is invalid or unavailable."); }
 
