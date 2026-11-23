@@ -2,13 +2,13 @@ import Link from "next/link";
 import { signInAction } from "@/app/auth-actions";
 import { Command, ShieldCheck } from "lucide-react";
 
-export default async function LoginPage({ searchParams }: { searchParams: { error?: string; message?: string } }) {
+export default function LoginPage({ searchParams }: { searchParams: { error?: string; message?: string } }) {
   return <main className="auth-wrap">
     <section className="auth-card">
       <Link href="/" className="auth-brand"><span className="brand-mark"><Command size={21}/></span><span><strong>EA Trade</strong><small>MOBILE VPS CONSOLE</small></span></Link>
       <p className="eyebrow mt-9">WELCOME BACK</p><h1 className="mt-2 text-2xl font-semibold tracking-tight">Sign in to your workspace</h1><p className="mt-2 text-sm leading-6 text-slate-400">Access your hosted robots, licenses and system activity.</p>
-      {params.error && <p role="alert" className="auth-alert">{params.error}</p>}
-      {params.message && <p role="status" className="auth-success">{params.message}</p>}
+      {searchParams.error && <p role="alert" className="auth-alert">{searchParams.error}</p>}
+      {searchParams.message && <p role="status" className="auth-success">{searchParams.message}</p>}
       <form action={signInAction} className="mt-7 space-y-4">
         <label className="auth-label">Email address<input className="auth-input" name="email" type="email" autoComplete="email" placeholder="you@example.com" required/></label>
         <label className="auth-label">Password<input className="auth-input" name="password" type="password" autoComplete="current-password" placeholder="Enter your password" required/></label>
