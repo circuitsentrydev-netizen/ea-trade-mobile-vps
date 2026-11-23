@@ -2,8 +2,7 @@ import Link from "next/link";
 import { signUpAction } from "@/app/auth-actions";
 import { Command, ShieldCheck } from "lucide-react";
 
-export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const params = await searchParams;
+export default async function RegisterPage({ searchParams }: { searchParams: { error?: string } }) {
   return <main className="auth-wrap">
     <section className="auth-card">
       <Link href="/" className="auth-brand"><span className="brand-mark"><Command size={21}/></span><span><strong>EA Trade</strong><small>MOBILE VPS CONSOLE</small></span></Link>
