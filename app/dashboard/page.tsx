@@ -12,7 +12,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect("/login");
   const [{ data: profile }, { data: accounts }, { count: signalCount }, { count: pendingJobs }] = await Promise.all([
-    supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("display_name,role").eq("id", user.id).maybeSingle(),
     supabase.from("mt5_accounts").select("id,label,broker_server,account_mode,symbol,timeframe,status").eq("owner_id", user.id).order("created_at", { ascending: false }),
     supabase.from("trading_signals").select("id", { count: "exact", head: true }).neq("status", "CANCELLED"),
     supabase.from("vps_jobs").select("id", { count: "exact", head: true }).eq("owner_id", user.id).eq("status", "PENDING")
@@ -26,7 +26,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
     { href: "/dashboard/instances", label: "All robot instances", detail: "Manage connected MT5 accounts", icon: Bot, value: String(robots.length) }
   ];
   return <main className="mx-auto min-h-[70vh] w-full max-w-6xl px-4 py-7 sm:px-8 sm:py-10">
-    <div className="flex flex-wrap items-start justify-between gap-5"><div><p className="eyebrow">TRADING CONTROL CENTRE</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Welcome, {name}</h1><p className="mt-2 text-sm text-slate-400">Start and monitor your robot, and follow your mentor's signals.</p></div><form action={signOutAction}><button className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/10 px-3 text-sm text-slate-300 hover:bg-white/5"><LogOut size={15}/> Sign out</button></form></div>
+    <div className="flex flex-wrap items-start justify-between gap-5"><div><p className="eyebrow">TRADING CONTROL CENTRE</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Welcome, {name}</h1><p className="mt-2 text-sm text-slate-400">Start and monitor your robot, and follow your mentor's signals.</p></div><div className="flex flex-wrap items-center gap-2">{profile?.role === "SUPERADMIN" && <Link href="/admin" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-400/20 bg-blue-400/[0.06] px-3 text-sm text-blue-200 hover:bg-blue-400/10"><ShieldCheck size={15}/> Admin console</Link>}<form action={signOutAction}><button className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/10 px-3 text-sm text-slate-300 hover:bg-white/5"><LogOut size={15}/> Sign out</button></form></div></div>
     {(searchParams?.queued || searchParams?.error || searchParams?.message) && <div role="status" className={`mt-5 rounded-xl border p-3 text-sm ${searchParams.error ? "border-rose-400/20 bg-rose-400/[0.06] text-rose-200" : "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200"}`}>{searchParams.error || searchParams.message || "Control request queued. Waiting for the Windows MT5 worker to process it."}</div>}
     <section className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div className="surface-card p-4"><p className="text-[10px] font-semibold tracking-wider text-slate-500">ROBOTS</p><p className="mt-2 text-2xl font-semibold text-white">{robots.length}</p><p className="mt-1 text-[11px] text-slate-500">Registered accounts</p></div>
