@@ -21,7 +21,9 @@ function signalLabel(status: string, schema: string | null) {
   return status.replaceAll("_", " ");
 }
 function executionLabel(status: string) {
-  if (status === "PENDING") return "EXECUTION PENDING (reported by EA)";\n  if (status === "EXECUTED") return "EXECUTED (reported by EA)";\n  if (status === "CLOSED") return "CLOSED (reported by EA)";
+  if (status === "PENDING") return "EXECUTION PENDING (reported by EA)";
+  if (status === "EXECUTED") return "EXECUTED (reported by EA)";
+  if (status === "CLOSED") return "CLOSED (reported by EA)";
   if (status === "NOT_EXECUTED") return "NOT EXECUTED (confirmed by EA)";
   return "NOT CONFIRMED";
 }
