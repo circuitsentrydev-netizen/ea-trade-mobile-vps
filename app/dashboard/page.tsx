@@ -14,7 +14,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   const [{ data: profile }, { data: accounts }, { count: signalCount }, { count: pendingJobs }] = await Promise.all([
     supabase.from("profiles").select("display_name,role").eq("id", user.id).maybeSingle(),
     supabase.from("mt5_accounts").select("id,label,broker_server,account_mode,symbol,timeframe,status").eq("owner_id", user.id).order("created_at", { ascending: false }),
-    supabase.from("trading_signals").select("id", { count: "exact", head: true }).neq("status", "CANCELLED"),
+    supabase.from("trading_signals").select("id", { count: "exact", head: true }).eq("status", "ACTIVE"),
     supabase.from("vps_jobs").select("id", { count: "exact", head: true }).eq("owner_id", user.id).eq("status", "PENDING")
   ]);
   const name = profile?.display_name || user.email?.split("@")[0] || "Trader";
