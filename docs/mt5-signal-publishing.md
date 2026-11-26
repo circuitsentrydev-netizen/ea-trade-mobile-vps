@@ -80,7 +80,7 @@ The server mirrors the UTF-16 code-unit behavior using JavaScript `charCodeAt` a
 
 **Real ingestion is intentionally disabled by default.** The API returns `503 real_journal_verification_required` unless the server environment variable `SMC_V3_REAL_JOURNAL_VERIFIED=true` is set.
 
-Do not set that variable based on synthetic fixtures or code inspection alone. First obtain one or more actual V3 rows produced by the user's MT5 v1.082 EA, preserve the raw rows, and demonstrate that the checksum implementation matches the source EA's stored checksum. Record the tested row(s), calculated checksum, stored checksum, and test result. Only then may an authorized release operator enable real ingestion.
+Do not set that variable based on synthetic fixtures or code inspection alone. First obtain the actual V3 CSV produced by the user's MT5 v1.082 EA and run `npm run verify:smc-v3 -- /path/to/SMC_SniperScalp_v108_v3_<LOGIN>_<MAGIC>.csv`. Preserve the raw sample securely and record the row count, calculated checksum, stored checksum, and result. Only then may an authorized release operator enable real ingestion.
 
 No actual MT5 journal CSV rows were available during this implementation pass, so real-record checksum compatibility has **not** yet been demonstrated.
 
