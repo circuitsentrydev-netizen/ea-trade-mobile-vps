@@ -46,7 +46,7 @@ function sourceChecksum(fields) {
 
 let lines;
 try {
-  lines = readFileSync(file, "utf8").replace(/^\\uFEFF/, "").split(/\\r?\\n/);
+  lines = readFileSync(file, "utf8").replace(/^\uFEFF/, "").split(/\r?\n/);
 } catch (error) {
   console.error("Could not read journal:", error.message);
   process.exit(2);
