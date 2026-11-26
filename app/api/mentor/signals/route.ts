@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     if (!existing) { results.push({ eventId: e.eventId, result: "status_before_publication_ignored" }); continue; }
 
     const patch: Record<string, unknown> = {
-      raw_event: { event: e, status_event: e },
+      latest_status_event: e,
     };
     if (e.eventType === EVENT.EXPIRED) patch.status = "EXPIRED";
     if (e.eventType === EVENT.INVALIDATED) patch.status = "INVALIDATED";
