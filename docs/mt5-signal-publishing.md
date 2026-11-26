@@ -1,63 +1,114 @@
-# CircuitSentry — MT5 V3 journal publisher
+# CircuitSentry — SMC EA v1.082 V3 journal ingestion
 
-## Architecture and safety
+## Source-of-truth contract
 
-`CircuitSentryJournalPublisher.mq5` is a separate, read-only MT5 Expert Advisor. It polls the SMC EA's existing V3 CSV journal from MT5 Common Files and sends journal records to the hosting app. It does not modify the source EA, its settings, or its journal, and it contains no trade/order functions.
+This integration is based on the uploaded `SMC_EA_SniperScalp_v1_082.mq5` source. The source EA and its V3 journal remain authoritative. Do not modify the EA's trading logic or V3 schema for this integration.
 
-The source EA's journal filename is:
+The source journal filename is:
 
-`SMC_SniperScalp_v108_v3_<ACCOUNT_LOGIN>_<MagicNumber>.csv`
+`SMC_SniperScalp_v108_v3_<LOGIN>_<MAGIC>.csv`
 
-The publisher derives this automatically when `InpJournalFile` is blank. Its default magic number matches the uploaded `SMC_EA_SniperScalp_v1_082` source (91827364). If the source EA uses another magic number, set `InpMagicNumber` to the exact value.
+It is stored in MT5 Common Files and uses semicolon-delimited CSV. The 18 columns, in exact order, are:
 
-## Publication rules
+1. `V3`
+2. `EVENT_ID`
+3. `PARENT_ID`
+4. `SETUP_ID`
+5. `SYMBOL`
+6. `DIR`
+7. `TF`
+8. `TYPE`
+9. `SOURCE_UTC`
+10. `CONFIRM_UTC`
+11. `SOURCE_BROKER_TIME`
+12. `CONFIRM_BROKER_TIME`
+13. `LOW`
+14. `HIGH`
+15. `CONFIG`
+16. `VALID`
+17. `REASON`
+18. `CHECKSUM`
 
-- Only event type `10` (`SMC_EVT_QUALIFIED`) creates a signal.
-- Liquidity, sweep, reclaim, displacement, structure, zone, mitigation, rejection, and LTF CHoCH events are never published as trade signals.
-- Event types `12`, `13`, `14`, and `15` are status events only: REJECTED, EXPIRED, EXECUTED, and INVALIDATED.
-- Execution status is stored separately from signal publication status.
-- No entry, stop-loss, or take-profit is inferred. Those database fields remain NULL unless an independent source supplies them.
-- The original source/confirmation UTC times, broker times, zone bounds, reason, config version, V3 schema marker, checksum, and raw journal line are retained.
+`CONFIG=108` is the EA configuration version. It is not the EA software release. The publisher's `InpEAVersion` is the separate software-release label (for example, `1.082`).
 
-## Install and configure
+V3 contains zone bounds, not dedicated entry, stop-loss, or take-profit fields. Those prices must remain NULL in the EA-derived signal unless a separate, explicitly identified source supplies them. This integration never invents them.
 
-1. Deploy the current CircuitSentry app and apply all migrations in `supabase/migrations`.
-2. Sign in as an approved mentor and open Mentor Workspace → **Connect your MT5 bot**.
-3. Generate a bot token and copy it immediately. The app stores only its SHA-256 hash; it cannot show the token again.
-4. In MT5, open **File → Open Data Folder**, then navigate to `MQL5/Experts`.
-5. Copy `mt5/CircuitSentryJournalPublisher.mq5` from this repository into that folder and compile it in MetaEditor.
-6. Attach the publisher EA to any chart on the same MT5 terminal/account as the source SMC EA. It is a timer-driven file reader; it does not trade on the chart symbol.
-7. Set:
-   - `InpApiEndpoint`: your deployed app URL plus `/api/mentor/signals`.
-   - `InpMentorBotToken`: the one-time token from the mentor workspace.
-   - `InpEAVersion`: the source EA version label (default `1.082`).
-   - `InpMagicNumber`: same magic number as the source EA (default `91827364`).
-   - `InpJournalFile`: leave blank for automatic filename, or specify the exact Common Files filename.
-8. In MT5 **Tools → Options → Expert Advisors**, enable **Allow WebRequest for listed URL** and add only your deployed app origin (for example `https://app.example.com`).
-9. Check the publisher's Experts log for batch acknowledgements. It never prints the bot token.
+## Event mapping
 
-## Reliability and recovery
+The enum ordinals are taken from the source `ENUM_SMC_EVENT`:
 
-- The publisher validates the V3 FNV-1a checksum before forwarding records; the API independently recomputes and verifies it.
-- It reads the source file with shared read access. It never opens the source journal for writing.
-- A final row without a line terminator, an incomplete row, or a checksum-invalid row is not forwarded as a signal. An incomplete final row is retried on the next poll.
-- A separate cursor file is written under Common Files. It is not the source journal. If the API is unavailable or returns a retryable database error, the cursor is not advanced and the batch is replayed.
-- Database unique indexes on mentor + event ID and mentor + setup ID prevent duplicate publication if the terminal restarts or an acknowledgement is lost.
-- Intermediate event types are scanned but never published as signals.
-- Status events arriving before their qualified event are ignored; the later qualified event remains the only signal-creation event.
+| Ordinal | Event | Platform behavior |
+|---:|---|---|
+| 0 | CREATED | Audit only |
+| 1 | LIQUIDITY | Audit only |
+| 2 | SWEEP | Audit only |
+| 3 | RECLAIM | Audit only |
+| 4 | DISPLACEMENT | Audit only |
+| 5 | STRUCTURE | Audit only |
+| 6 | ZONE | Audit only |
+| 7 | MITIGATION | Audit only |
+| 8 | REJECTION | Audit only |
+| 9 | LTF_CHOCH | Audit only |
+| 10 | QUALIFIED | Creates the one client-facing signal for the setup |
+| 11 | EXECUTION_PENDING | Updates execution state only |
+| 12 | REJECTED | Updates setup status only |
+| 13 | EXPIRED | Updates setup status only |
+| 14 | EXECUTED | Updates execution state only |
+| 15 | INVALIDATED | Updates setup status only |
+| 16 | CLOSED | Updates execution state only |
 
-## API payload and audit
+No intermediate event can create a trade signal. Execution and publication are separate states. An EA execution event is reported as an EA event; the platform does not independently verify a broker position.
 
-The publisher posts batches to `POST /api/mentor/signals` using `Authorization: Bearer <token>`. The API validates mentor approval, event shape, timestamps, and the same journal checksum before storing. The raw qualified record is retained in `raw_event`; later status records are stored separately in `latest_status_event`.
+## Checksum contract
 
-The client feed distinguishes:
-- **QUALIFIED · PUBLISHED** — the EA journal confirmed the setup and the platform stored it.
-- **EXPIRED / INVALIDATED / REJECTED** — a later EA journal event updated the setup status.
-- **EXECUTED (confirmed by EA)** — only after an `SMC_EVT_EXECUTED` record is received.
-- **NOT CONFIRMED** — no execution event has been received. This is not presented as proof of a failed trade.
+The source method is `CSetupJournal::Checksum(SSMCEvent &e)`. It builds this exact payload, in order, joining fields with a literal pipe:
 
-A journal's `SMC_EVT_EXECUTED` means the EA recorded broker acceptance in its own execution flow; the platform does not independently query the broker to verify a live position.
+`eventId|parentEventId|setupId|symbol|direction|EnumToString(timeframe)|eventType|sourceTime|confirmedTime|sourceBrokerTime|confirmedBrokerTime|levelLow|levelHigh|configVersion|valid|reason`
 
-## Offline independence
+The source uses:
+- `(string)` for event, parent, and setup IDs;
+- `IntegerToString` for direction, event type, config version, and valid flag;
+- `EnumToString` for timeframe (for example, `PERIOD_M5`);
+- `TimeToString(value, TIME_DATE|TIME_SECONDS)` for all four timestamps;
+- `DoubleToString(value, 8)` for both zone bounds;
+- the original reason string;
+- initial hash `2166136261`, XOR with each `StringGetCharacter(payload, i)`, then multiply by `16777619` with uint32 overflow.
 
-The publisher is separate from the trading EA. If the hosting app, API, network, or publisher is offline, the source EA continues its own strategy and journal writes. The publisher catches up from the append-only journal when it resumes. It never sends, modifies, or closes orders.
+The server mirrors the UTF-16 code-unit behavior using JavaScript `charCodeAt` and uint32 multiplication. It parses the raw semicolon CSV row and verifies that the JSON event agrees with the original row before accepting the checksum. It does not hash UTF-8 bytes.
+
+## Real-record verification gate
+
+**Real ingestion is intentionally disabled by default.** The API returns `503 real_journal_verification_required` unless the server environment variable `SMC_V3_REAL_JOURNAL_VERIFIED=true` is set.
+
+Do not set that variable based on synthetic fixtures or code inspection alone. First obtain one or more actual V3 rows produced by the user's MT5 v1.082 EA, preserve the raw rows, and demonstrate that the checksum implementation matches the source EA's stored checksum. Record the tested row(s), calculated checksum, stored checksum, and test result. Only then may an authorized release operator enable real ingestion.
+
+No actual MT5 journal CSV rows were available during this implementation pass, so real-record checksum compatibility has **not** yet been demonstrated.
+
+## Publisher behavior
+
+`mt5/CircuitSentryJournalPublisher.mq5` is a separate read-only EA. It opens the source file with shared read access and never writes to it. It has no order/trade functions. Its default magic number is `91827364`, matching the source file's default `MagicNumber`; set it to the actual EA input if changed.
+
+The publisher:
+- reads the exact V3 filename from Common Files;
+- parses semicolon CSV with quoted-field handling;
+- checks the final line terminator before reading;
+- validates the source checksum before forwarding;
+- holds its cursor on malformed rows, metadata failures, or checksum failures rather than skipping them;
+- keeps its cursor in a separate Common Files cursor file;
+- retries when the API is unavailable;
+- sends only QUALIFIED and execution/status events by default; intermediate events are never signals;
+- does not alter the source journal or EA trading behavior.
+
+## Setup
+
+1. Deploy the app branch after code review and successful build/typecheck.
+2. Do not enable `SMC_V3_REAL_JOURNAL_VERIFIED` until real MT5 rows have passed checksum verification.
+3. Sign in as an approved mentor and open Mentor Workspace → **Connect your MT5 bot**.
+4. Generate a bot token and copy it immediately. Only its SHA-256 hash is stored.
+5. Compile `mt5/CircuitSentryJournalPublisher.mq5` in MetaEditor.
+6. Attach it to any chart in the same MT5 terminal/account as the source EA.
+7. Configure the deployed API URL, mentor bot token, EA software release label, and the exact Magic Number.
+8. In MT5 Tools → Options → Expert Advisors, allow WebRequest only to the deployed app origin.
+9. Confirm publisher acknowledgements and server-side event audit records.
+
+MetaEditor compilation and a running-terminal test have not been performed in this environment. Do not treat this source as production-verified until those tests and the real-record checksum gate are complete.
