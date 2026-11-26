@@ -186,7 +186,10 @@ bool SendBatch(string &jsonEvents[],ulong maxEventId)
       return false;
    }
    string responseText=CharArrayToString(response,0,WHOLE_ARRAY,CP_UTF8);
-   if(StringFind(responseText,"retryable_database_error")>=0 ||\n      StringFind(responseText,"checksum_mismatch")>=0 ||\n      StringFind(responseText,"invalid_record")>=0 ||\n      StringFind(responseText,"invalid_identity")>=0)
+   if(StringFind(responseText,"retryable_database_error")>=0 ||
+      StringFind(responseText,"checksum_mismatch")>=0 ||
+      StringFind(responseText,"invalid_record")>=0 ||
+      StringFind(responseText,"invalid_identity")>=0)
    {
       Print("CS_PUBLISHER | server requested retry; cursor unchanged");
       return false;
