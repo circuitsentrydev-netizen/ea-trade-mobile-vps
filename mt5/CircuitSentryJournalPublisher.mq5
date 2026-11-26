@@ -18,6 +18,7 @@ input bool   InpPublishStatusEvents = true;
 
 ulong g_cursor = 0;
 string g_cursor_file = "";
+string g_journal_file = "";
 
 string TrimQuotes(string value)
 {
@@ -143,7 +144,7 @@ bool SaveCursor(ulong value)
 
 bool JournalHasCompleteFinalLine()
 {
-   int h=FileOpen(InpJournalFile,FILE_READ|FILE_BIN|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE);
+   int h=FileOpen(g_journal_file,FILE_READ|FILE_BIN|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE);
    if(h==INVALID_HANDLE) return false;
    ulong size=FileSize(h);
    if(size==0) { FileClose(h); return true; }
@@ -268,8 +269,9 @@ void PollJournal()
 
 int OnInit()
 {
-   if(InpJournalFile=="")
-      InpJournalFile="SMC_SniperScalp_v108_v3_"+IntegerToString((int)AccountInfoInteger(ACCOUNT_LOGIN))+"_"+IntegerToString((int)InpMagicNumber)+".csv";
+   g_journal_file=InpJournalFile;
+   if(g_journal_file=="")
+      g_journal_file="SMC_SniperScalp_v108_v3_"+IntegerToString((int)AccountInfoInteger(ACCOUNT_LOGIN))+"_"+IntegerToString((int)InpMagicNumber)+".csv";
    g_cursor_file="CS_SMC_PUBLISHER_"+IntegerToString((int)AccountInfoInteger(ACCOUNT_LOGIN))+".cursor";
    LoadCursor();
    if(InpPollSeconds<1 || InpBatchSize<1 || InpBatchSize>100)
