@@ -106,6 +106,18 @@ bool SaveCursor(ulong value)
    return true;
 }
 
+bool JournalHasCompleteFinalLine()
+{
+   int h=FileOpen(InpJournalFile,FILE_READ|FILE_BIN|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE);
+   if(h==INVALID_HANDLE) return false;
+   ulong size=FileSize(h);
+   if(size==0) { FileClose(h); return true; }
+   FileSeek(h,-1,SEEK_END);
+   int last=FileReadInteger(h,CHAR_VALUE);
+   FileClose(h);
+   return (last==10); // FileWrite CSV rows terminate with LF (CRLF also ends in LF).
+}
+
 bool IsPublishableType(int eventType)
 {
    if(eventType==10) return true; // SMC_EVT_QUALIFIED only as a new signal.
@@ -139,7 +151,7 @@ bool SendBatch(string &jsonEvents[],ulong maxEventId)
       return false;
    }
    string responseText=CharArrayToString(response,0,WHOLE_ARRAY,CP_UTF8);
-   if(StringFind(responseText,"retryable_database_error")>=0)
+   if(StringFind(responseText,"retryable_database_error")>=0 ||\n      StringFind(responseText,"checksum_mismatch")>=0 ||\n      StringFind(responseText,"invalid_record")>=0 ||\n      StringFind(responseText,"invalid_identity")>=0)
    {
       Print("CS_PUBLISHER | server requested retry; cursor unchanged");
       return false;
