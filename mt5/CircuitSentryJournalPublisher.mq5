@@ -268,6 +268,8 @@ void PollJournal()
 
 int OnInit()
 {
+   if(InpJournalFile=="")
+      InpJournalFile="SMC_SniperScalp_v108_v3_"+IntegerToString((int)AccountInfoInteger(ACCOUNT_LOGIN))+"_"+IntegerToString((int)InpMagicNumber)+".csv";
    g_cursor_file="CS_SMC_PUBLISHER_"+IntegerToString((int)AccountInfoInteger(ACCOUNT_LOGIN))+".cursor";
    LoadCursor();
    if(InpPollSeconds<1 || InpBatchSize<1 || InpBatchSize>100)
