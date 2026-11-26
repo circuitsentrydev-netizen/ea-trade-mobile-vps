@@ -16,12 +16,19 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Configure Supabase values in `.env.local` before enabling authentication or persistence.
+Configure the Supabase project URL and publishable key in `.env.local` before using authentication. Configure `SUPABASE_SERVICE_ROLE_KEY` and `MT5_ENCRYPTION_KEY` as server-only secrets for privileged server actions. Never prefix either secret with `NEXT_PUBLIC_`, commit them, or paste them into chat.
 
-## Database
-Apply `supabase/migrations/0001_initial_schema.sql` in the Supabase SQL editor. Review the migration and policies against your project before production use.
+## Database migrations
+The five timestamped SQL files in `supabase/migrations/` correspond to the five migrations already recorded in the linked Supabase project. Do not manually re-run these SQL files in the SQL editor.
 
-## Safety
+To inspect migration status from a linked Codespace, use:
+```bash
+npx supabase migration list --linked
+```
+
+This is a read-only status check. Do not run `supabase db push` unless a new, reviewed migration is intentionally ready to deploy.
+
+## Safety and execution
 Mock mode is a workflow simulator only. It must never connect to a broker, submit orders, or execute real trades. Real MT5 execution requires a separately deployed Windows worker, authenticated queue polling, and operational safeguards.
 
 Free hosting tiers have quotas and limits; ongoing zero-cost hosting is not guaranteed.
