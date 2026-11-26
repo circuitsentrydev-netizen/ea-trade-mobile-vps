@@ -21,6 +21,11 @@ type JournalEvent = {
   reason: string;
   eaVersion: string;
   journalSchemaVersion: string;
+  parentEventId: string;
+  sourceBrokerTime: string;
+  confirmedBrokerTime: string;
+  configVersion: number;
+  valid: boolean;
   checksum: number;
   rawLine: string;
 };
@@ -28,6 +33,22 @@ type JournalEvent = {
 const EVENT = { QUALIFIED: 10, REJECTED: 12, EXPIRED: 13, EXECUTED: 14, INVALIDATED: 15 } as const;
 const validUtc = (value: string) => /^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
   && Number.isFinite(Date.parse(value.replace(/^(\d{4})\.(\d{2})\.(\d{2}) /, "$1-$2-$3T") + "Z"));
+
+function journalChecksum(e: JournalEvent): number {
+  const payload = [
+    e.eventId, e.parentEventId, e.setupId, e.symbol,
+    e.direction === "BUY" ? "1" : "-1", e.timeframe, String(e.eventType),
+    e.sourceUtc, e.confirmedUtc, e.sourceBrokerTime, e.confirmedBrokerTime,
+    Number(e.zoneLow).toFixed(8), Number(e.zoneHigh).toFixed(8),
+    String(e.configVersion), e.valid ? "1" : "0", e.reason
+  ].join("|");
+  let hash = 2166136261;
+  for (let i = 0; i < payload.length; i++) {
+    hash ^= payload.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
 
 export async function POST(request: NextRequest) {
   const auth = request.headers.get("authorization") ?? "";
@@ -60,9 +81,12 @@ export async function POST(request: NextRequest) {
       || !["BUY", "SELL"].includes(e.direction) || !/^[A-Z0-9_]+$/.test(e.timeframe)
       || ![e.zoneLow, e.zoneHigh].every(Number.isFinite) || e.zoneLow < 0 || e.zoneHigh < e.zoneLow
       || !validUtc(e.sourceUtc) || !validUtc(e.confirmedUtc)
+      || !validUtc(e.sourceBrokerTime) || !validUtc(e.confirmedBrokerTime)
+      || !Number.isInteger(e.configVersion) || !e.valid
       || !e.eaVersion || !Number.isInteger(e.checksum) || !e.rawLine || e.rawLine.length > 12000) {
       results.push({ eventId: e.eventId, result: "invalid_record" }); continue;
     }
+    if (journalChecksum(e) !== (e.checksum >>> 0)) { results.push({ eventId: e.eventId, result: "checksum_mismatch" }); continue; }
     if (![EVENT.QUALIFIED, EVENT.REJECTED, EVENT.EXPIRED, EVENT.EXECUTED, EVENT.INVALIDATED].includes(e.eventType as 10|12|13|14|15)) {
       results.push({ eventId: e.eventId, result: "ignored_event_type" }); continue;
     }
