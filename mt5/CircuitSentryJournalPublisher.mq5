@@ -50,8 +50,7 @@ uint JournalChecksum(string &f[])
 string ToISO8601UTC(string value)
 {
    // V3 journal stores UTC as YYYY.MM.DD HH:MI:SS.
-   StringReplace(value," ","T");
-   return value+"Z";
+   return value;
 }
 
 string EventJSON(string &f[],string rawLine)
