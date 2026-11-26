@@ -69,9 +69,17 @@ export async function createMt5AccountAction(formData: FormData) {
     if (usageError || (count ?? 0) >= license.max_accounts) fail("That HOST ROBOT KEY has reached its account limit.");
     mentorId = license.mentor_id;
     licenseId = license.id;
+    const { data: existingProfile } = await admin.from("profiles").select("mentor_id").eq("id", user.id).maybeSingle();
+    if (existingProfile?.mentor_id && existingProfile.mentor_id !== license.mentor_id) {
+      fail("Your account is already linked to a different mentor. Contact support before switching mentors.");
+    }
     if (!license.client_id) {
       const { error: assignError } = await admin.from("license_keys").update({ client_id: user.id }).eq("id", license.id).is("client_id", null);
       if (assignError) fail("Could not assign this licence. Please try again.");
+    }
+    if (!existingProfile?.mentor_id) {
+      const { error: mentorLinkError } = await admin.from("profiles").update({ mentor_id: license.mentor_id }).eq("id", user.id).is("mentor_id", null);
+      if (mentorLinkError) fail("The licence was validated, but your mentor relationship could not be saved. Contact support before retrying.");
     }
   }
 
