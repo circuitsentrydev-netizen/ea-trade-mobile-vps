@@ -3,6 +3,7 @@ import { Clock3, ShieldCheck, UserRound, XCircle, Radio, PlusCircle } from "luci
 import { SectionPage } from "@/components/section-page";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { publishSignalAction, updateSignalStatusAction } from "./actions";
+import { MentorBotConnection } from "./mentor-bot-connection";
 
 type Props = { searchParams?: { error?: string; published?: string; updated?: string } };
 
@@ -34,6 +35,7 @@ export default async function MentorPage({ searchParams }: Props) {
       {application?.submitted_at && <p className="mt-3 text-xs text-slate-500">Submitted {new Date(application.submitted_at).toLocaleString()}</p>}
       {application?.review_note && <p className="mt-3 text-xs text-slate-300">Review note: {application.review_note}</p>}
     </div> : <div className="grid gap-5">
+      <MentorBotConnection />
       <div className="surface-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2"><PlusCircle size={18} className="text-blue-300"/><h2 className="text-base font-semibold text-white">Publish a trading signal</h2></div>
         <form action={publishSignalAction} className="grid gap-4 sm:grid-cols-2">
