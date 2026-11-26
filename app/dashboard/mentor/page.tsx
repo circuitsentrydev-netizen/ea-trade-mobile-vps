@@ -5,8 +5,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { publishSignalAction, updateSignalStatusAction } from "./actions";
 import { MentorBotConnection } from "./mentor-bot-connection";
 import { MentorLicenses } from "./mentor-licenses";
+import { MentorEaUpload } from "./mentor-ea-upload";
 
-type Props = { searchParams?: { error?: string; published?: string; updated?: string } };
+type Props = { searchParams?: { error?: string; published?: string; updated?: string; uploaded?: string } };
 
 export default async function MentorPage({ searchParams }: Props) {
   const supabase = createSupabaseServerClient();
@@ -27,12 +28,16 @@ export default async function MentorPage({ searchParams }: Props) {
   const { data: licenses } = approved ? await supabase.from("license_keys")
     .select("id,key_hint,max_accounts,client_id,status,expires_at,created_at")
     .eq("mentor_id", user.id).order("created_at", { ascending: false }).limit(100) : { data: [] };
+  const { data: builds } = approved ? await supabase.from("ea_builds")
+    .select("id,file_name,version_tag,version_notes,is_active,created_at")
+    .eq("mentor_id", user.id).order("created_at", { ascending: false }).limit(50) : { data: [] };
   const status = approved ? "APPROVED" : application?.status ?? "NOT_SUBMITTED";
 
   return <SectionPage eyebrow="MENTOR WORKSPACE" title="Mentor signal desk" description="Publish trade ideas to your assigned clients. Publishing a signal does not place a broker trade.">
     {searchParams?.error && <p role="alert" className="mb-4 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] p-3 text-sm text-rose-200">{searchParams.error}</p>}
     {searchParams?.published && <p role="status" className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3 text-sm text-emerald-200">Signal published successfully.</p>}
     {searchParams?.updated && <p role="status" className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3 text-sm text-emerald-200">Signal status updated.</p>}
+    {searchParams?.uploaded && <p role="status" className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3 text-sm text-emerald-200">EA build uploaded to private storage.</p>}
     {!approved ? <div className="surface-card p-5">
       <div className="flex items-center gap-2">{status === "REJECTED" ? <XCircle className="text-rose-300"/> : status === "APPROVED" ? <ShieldCheck className="text-emerald-300"/> : <Clock3 className="text-amber-300"/>}<h2 className="text-sm font-semibold text-white">{status === "PENDING" ? "Application pending review" : status === "REJECTED" ? "Application not approved" : "Mentor access not active"}</h2></div>
       <p className="mt-3 text-sm leading-6 text-slate-400">{status === "PENDING" ? "Your mentor application is awaiting Superadmin review. Publishing tools will unlock after approval." : status === "REJECTED" ? "Your application was not approved. Contact the platform administrator if you need clarification." : "Your account does not currently have approved mentor permissions."}</p>
@@ -41,6 +46,8 @@ export default async function MentorPage({ searchParams }: Props) {
     </div> : <div className="grid gap-5">
       <MentorBotConnection />
       <MentorLicenses licenses={licenses ?? []} />
+      <MentorEaUpload />
+      <section className="surface-card p-5"><h2 className="text-base font-semibold text-white">Your EA builds</h2>{!builds?.length ? <p className="mt-3 text-xs text-slate-500">No builds uploaded yet.</p> : <div className="mt-3 grid gap-2">{builds.map(build=><div key={build.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.07] p-3"><div><p className="text-sm text-white">{build.file_name}</p><p className="mt-1 text-[11px] text-slate-400">Version {build.version_tag} · {new Date(build.created_at).toLocaleString()}</p></div><span className="text-[11px] text-slate-500">{build.is_active ? "Active build" : "Stored"}</span></div>)}</div>}</section>
       <div className="surface-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2"><PlusCircle size={18} className="text-blue-300"/><h2 className="text-base font-semibold text-white">Publish a trading signal</h2></div>
         <form action={publishSignalAction} className="grid gap-4 sm:grid-cols-2">
