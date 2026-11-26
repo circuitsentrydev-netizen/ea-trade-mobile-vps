@@ -33,6 +33,40 @@ string JsonEscape(string value)
    return value;
 }
 
+bool ParseCsvLine(string line,string &fields[])
+{
+   ArrayResize(fields,0);
+   string current="";
+   bool quoted=false;
+   int length=StringLen(line);
+   for(int i=0;i<length;i++)
+   {
+      ushort ch=(ushort)StringGetCharacter(line,i);
+      if(ch==34)
+      {
+         if(quoted && i+1<length && StringGetCharacter(line,i+1)==34)
+         {
+            current+=CharToString(34);
+            i++;
+         }
+         else quoted=!quoted;
+      }
+      else if(ch==59 && !quoted)
+      {
+         int n=ArraySize(fields);
+         ArrayResize(fields,n+1);
+         fields[n]=current;
+         current="";
+      }
+      else current+=StringSubstr(line,i,1);
+   }
+   if(quoted) return false;
+   int n=ArraySize(fields);
+   ArrayResize(fields,n+1);
+   fields[n]=current;
+   return true;
+}
+
 uint JournalChecksum(string &f[])
 {
    // Exact V3 checksum contract from SMC_EA_SniperScalp v1.082.
