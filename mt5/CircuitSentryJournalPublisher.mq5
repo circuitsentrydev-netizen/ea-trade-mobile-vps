@@ -146,7 +146,7 @@ bool JournalHasCompleteFinalLine()
    if(h==INVALID_HANDLE) return false;
    ulong size=FileSize(h);
    if(size==0) { FileClose(h); return true; }
-   FileSeek(h,-1,SEEK_END);
+   FileSeek(h,(long)size-1,SEEK_SET);
    int last=FileReadInteger(h,CHAR_VALUE);
    FileClose(h);
    return (last==10); // FileWrite CSV rows terminate with LF (CRLF also ends in LF).
