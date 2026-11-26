@@ -4,6 +4,7 @@ import { SectionPage } from "@/components/section-page";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { publishSignalAction, updateSignalStatusAction } from "./actions";
 import { MentorBotConnection } from "./mentor-bot-connection";
+import { MentorLicenses } from "./mentor-licenses";
 
 type Props = { searchParams?: { error?: string; published?: string; updated?: string } };
 
@@ -23,6 +24,9 @@ export default async function MentorPage({ searchParams }: Props) {
   const { data: signals } = approved ? await supabase.from("trading_signals")
     .select("id,symbol,direction,entry_price,stop_loss,take_profit,status,published_at,expires_at")
     .eq("mentor_id", user.id).order("published_at", { ascending: false }).limit(50) : { data: [] };
+  const { data: licenses } = approved ? await supabase.from("license_keys")
+    .select("id,key_hint,max_accounts,client_id,status,expires_at,created_at")
+    .eq("mentor_id", user.id).order("created_at", { ascending: false }).limit(100) : { data: [] };
   const status = approved ? "APPROVED" : application?.status ?? "NOT_SUBMITTED";
 
   return <SectionPage eyebrow="MENTOR WORKSPACE" title="Mentor signal desk" description="Publish trade ideas to your assigned clients. Publishing a signal does not place a broker trade.">
@@ -36,6 +40,7 @@ export default async function MentorPage({ searchParams }: Props) {
       {application?.review_note && <p className="mt-3 text-xs text-slate-300">Review note: {application.review_note}</p>}
     </div> : <div className="grid gap-5">
       <MentorBotConnection />
+      <MentorLicenses licenses={licenses ?? []} />
       <div className="surface-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2"><PlusCircle size={18} className="text-blue-300"/><h2 className="text-base font-semibold text-white">Publish a trading signal</h2></div>
         <form action={publishSignalAction} className="grid gap-4 sm:grid-cols-2">
