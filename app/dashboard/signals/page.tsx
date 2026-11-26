@@ -16,8 +16,8 @@ function price(value: number | string | null) {
   const n = Number(value);
   return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 8 }) : "Not supplied";
 }
-function signalLabel(status: string) {
-  if (status === "ACTIVE") return "QUALIFIED · PUBLISHED";
+function signalLabel(status: string, schema: string | null) {
+  if (status === "ACTIVE") return schema === "V3" ? "QUALIFIED · PUBLISHED" : "MENTOR PUBLISHED";
   return status.replaceAll("_", " ");
 }
 function executionLabel(status: string) {
