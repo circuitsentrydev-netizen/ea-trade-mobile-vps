@@ -153,10 +153,15 @@ export async function POST(request: NextRequest) {
 
   const results: Array<{ eventId: string; result: string }> = [];
   let retryableFailure = false;
+  let invalidFailure = false;
 
   for (const e of body.events) {
     const validationError = validateEvent(e);
-    if (validationError) { results.push({ eventId: String(e?.eventId ?? ""), result: validationError }); continue; }
+    if (validationError) {
+      results.push({ eventId: String(e?.eventId ?? ""), result: validationError });
+      invalidFailure = true;
+      continue;
+    }
 
     const sourceAt = toIsoUtc(e.sourceUtc);
     const confirmedAt = toIsoUtc(e.confirmedUtc);
@@ -214,5 +219,8 @@ export async function POST(request: NextRequest) {
   }
 
   await admin.from("mentor_bot_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", token.id);
-  return NextResponse.json({ ok: !retryableFailure, results }, { status: retryableFailure ? 503 : 200 });
+  return NextResponse.json(
+    { ok: !retryableFailure && !invalidFailure, results },
+    { status: retryableFailure ? 503 : invalidFailure ? 422 : 200 },
+  );
 }
