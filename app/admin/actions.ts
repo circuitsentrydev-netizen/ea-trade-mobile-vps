@@ -30,22 +30,26 @@ export async function reviewMentorApplicationAction(formData: FormData) {
   if (appError || !application) redirect("/admin?error=Mentor%20application%20not%20found");
   if (application.status !== "PENDING") redirect("/admin?message=This%20application%20has%20already%20been%20reviewed");
 
+  // Claim the pending application first. The conditional update prevents two
+  // administrators from approving and rejecting the same request concurrently.
+  const { data: claimed, error: claimError } = await admin.from("mentor_applications").update({
+    status: decision,
+    reviewed_at: new Date().toISOString(),
+    reviewed_by: user.id,
+    review_note: reviewNote || null
+  }).eq("id", applicationId).eq("status", "PENDING").select("id").maybeSingle();
+  if (claimError || !claimed) redirect("/admin?message=This%20application%20was%20already%20reviewed");
+
   const approved = decision === "APPROVED";
   const { error: profileError } = await admin.from("profiles").update({
     role: approved ? "MENTOR_ADMIN" : "CLIENT",
     mentor_approved: approved
   }).eq("id", application.user_id);
-  if (profileError) redirect("/admin?error=Could%20not%20update%20mentor%20permissions");
-
-  const { error: reviewError } = await admin.from("mentor_applications").update({
-    status: decision,
-    reviewed_at: new Date().toISOString(),
-    reviewed_by: user.id,
-    review_note: reviewNote || null
-  }).eq("id", applicationId).eq("status", "PENDING");
-  if (reviewError) {
-    await admin.from("profiles").update({ role: "CLIENT", mentor_approved: false }).eq("id", application.user_id);
-    redirect("/admin?error=Review%20could%20not%20be%20saved.%20Permissions%20were%20rolled%20back");
+  if (profileError) {
+    await admin.from("mentor_applications").update({
+      status: "PENDING", reviewed_at: null, reviewed_by: null, review_note: null
+    }).eq("id", applicationId).eq("status", decision);
+    redirect("/admin?error=Could%20not%20update%20mentor%20permissions.%20Application%20returned%20to%20pending");
   }
   redirect("/admin?reviewed=1");
 }
