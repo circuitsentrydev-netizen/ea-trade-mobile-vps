@@ -31,7 +31,8 @@ string JsonEscape(string value)
    StringReplace(value, "\\", "\\\\");
    StringReplace(value, "\"", "\\\"");
    StringReplace(value, "\r", " ");
-   StringReplace(value, "\n", " ");
+   StringReplace(value, "
+", " ");
    return value;
 }
 
@@ -178,7 +179,9 @@ bool SendBatch(string &jsonEvents[],ulong maxEventId)
    if(copied>0) ArrayResize(data,copied-1);
    char response[];
    string responseHeaders;
-   string headers="Content-Type: application/json\r\nAuthorization: Bearer "+InpMentorBotToken+"\r\n";
+   string headers="Content-Type: application/json\r
+Authorization: Bearer "+InpMentorBotToken+"\r
+";
    ResetLastError();
    int status=WebRequest("POST",InpApiEndpoint,headers,15000,data,response,responseHeaders);
    if(status!=200)
@@ -202,7 +205,9 @@ bool SendBatch(string &jsonEvents[],ulong maxEventId)
 void PollJournal()
 {
    if(InpMentorBotToken=="" || StringFind(InpApiEndpoint,"YOUR-APP-DOMAIN")>=0) return;
-   if(!JournalHasCompleteFinalLine())\n   { Print("CS_PUBLISHER | journal final row is not newline-terminated; waiting without advancing cursor"); return; }\n   int h=FileOpen(g_journal_file,FILE_READ|FILE_TXT|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_ANSI);
+   if(!JournalHasCompleteFinalLine())
+   { Print("CS_PUBLISHER | journal final row is not newline-terminated; waiting without advancing cursor"); return; }
+   int h=FileOpen(g_journal_file,FILE_READ|FILE_TXT|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_ANSI);
    if(h==INVALID_HANDLE)
    {
       Print("CS_PUBLISHER | journal not available yet; waiting. error=",GetLastError());
