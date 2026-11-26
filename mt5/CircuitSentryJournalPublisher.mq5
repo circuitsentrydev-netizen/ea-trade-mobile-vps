@@ -7,7 +7,7 @@
 #property version   "1.00"
 #property description "Read-only SMC V3 journal signal publisher"
 
-input string InpJournalFile = "SMC_SniperScalp_v108_v3_0_0.csv";
+input string InpJournalFile = ""; // Leave blank to derive the EA journal filename.\ninput long   InpMagicNumber = 91827364;
 input string InpApiEndpoint = "https://YOUR-APP-DOMAIN/api/mentor/signals";
 input string InpMentorBotToken = "";
 input string InpEAVersion = "1.082";
