@@ -16,7 +16,8 @@ alter table public.trading_signals
   add column if not exists journal_schema_version text,
   add column if not exists raw_event jsonb,
   add column if not exists execution_status text not null default 'NOT_CONFIRMED',
-  add column if not exists execution_event_id text;
+  add column if not exists execution_event_id text,
+  add column if not exists latest_status_event jsonb;
 
 create unique index if not exists trading_signals_mentor_event_id_uidx
   on public.trading_signals (mentor_id, event_id)
