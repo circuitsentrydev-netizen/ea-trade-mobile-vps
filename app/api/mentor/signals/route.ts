@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
     if (e.journalSchemaVersion !== "V3" || !/^[A-Z0-9._-]{2,24}$/.test(e.symbol)
       || !["BUY", "SELL"].includes(e.direction) || !/^[A-Z0-9_]+$/.test(e.timeframe)
-      || ![e.zoneLow, e.zoneHigh].every(Number.isFinite) || e.zoneLow < 0 || e.zoneHigh < e.zoneLow
+      || ![e.zoneLow, e.zoneHigh].every(Number.isFinite) || e.zoneLow <= 0 || e.zoneHigh < e.zoneLow
       || !validUtc(e.sourceUtc) || !validUtc(e.confirmedUtc)
       || !validUtc(e.sourceBrokerTime) || !validUtc(e.confirmedBrokerTime)
       || !Number.isInteger(e.configVersion) || !e.valid
@@ -92,6 +92,15 @@ export async function POST(request: NextRequest) {
     }
     const sourceAt = new Date(e.sourceUtc.replace(/^(\d{4})\.(\d{2})\.(\d{2}) /, "$1-$2-$3T") + "Z").toISOString();
     const confirmedAt = new Date(e.confirmedUtc.replace(/^(\d{4})\.(\d{2})\.(\d{2}) /, "$1-$2-$3T") + "Z").toISOString();
+    const eventNames: Record<number, string> = { 10: "SMC_EVT_QUALIFIED", 12: "SMC_EVT_REJECTED", 13: "SMC_EVT_EXPIRED", 14: "SMC_EVT_EXECUTED", 15: "SMC_EVT_INVALIDATED" };
+    const { error: auditError } = await admin.from("trading_signal_events").insert({
+      mentor_id: token.mentor_id, event_id: e.eventId, setup_id: e.setupId,
+      event_type: e.eventType, event_type_name: eventNames[e.eventType],
+      event_utc: confirmedAt, raw_event: e
+    });
+    if (auditError && auditError.code !== "23505") {
+      results.push({ eventId: e.eventId, result: "retryable_database_error" }); continue;
+    }
 
     if (e.eventType === EVENT.QUALIFIED) {
       const rawEvent = { ...e, rawLine: e.rawLine };
