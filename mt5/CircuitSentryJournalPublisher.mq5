@@ -31,7 +31,8 @@ string JsonEscape(string value)
    StringReplace(value, "\\", "\\\\");
    StringReplace(value, "\"", "\\\"");
    StringReplace(value, "\r", " ");
-   StringReplace(value, "\n", " ");
+   StringReplace(value, "
+", " ");
    return value;
 }
 
@@ -158,7 +159,7 @@ bool IsPublishableType(int eventType)
 {
    if(eventType==10) return true; // SMC_EVT_QUALIFIED only as a new signal.
    if(!InpPublishStatusEvents) return false;
-   return (eventType==12 || eventType==13 || eventType==14 || eventType==15);
+   return (eventType>=11 && eventType<=16); // pending/rejected/expired/executed/invalidated/closed
 }
 
 bool SendBatch(string &jsonEvents[],ulong maxEventId)
@@ -178,7 +179,9 @@ bool SendBatch(string &jsonEvents[],ulong maxEventId)
    if(copied>0) ArrayResize(data,copied-1);
    char response[];
    string responseHeaders;
-   string headers="Content-Type: application/json\r\nAuthorization: Bearer "+InpMentorBotToken+"\r\n";
+   string headers="Content-Type: application/json\r
+Authorization: Bearer "+InpMentorBotToken+"\r
+";
    ResetLastError();
    int status=WebRequest("POST",InpApiEndpoint,headers,15000,data,response,responseHeaders);
    if(status!=200)
@@ -202,7 +205,9 @@ bool SendBatch(string &jsonEvents[],ulong maxEventId)
 void PollJournal()
 {
    if(InpMentorBotToken=="" || StringFind(InpApiEndpoint,"YOUR-APP-DOMAIN")>=0) return;
-   int h=FileOpen(InpJournalFile,FILE_READ|FILE_TXT|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_ANSI);
+   if(!JournalHasCompleteFinalLine())
+   { Print("CS_PUBLISHER | journal final row is not newline-terminated; waiting without advancing cursor"); return; }
+   int h=FileOpen(g_journal_file,FILE_READ|FILE_TXT|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_ANSI);
    if(h==INVALID_HANDLE)
    {
       Print("CS_PUBLISHER | journal not available yet; waiting. error=",GetLastError());
@@ -218,20 +223,26 @@ void PollJournal()
       string line=FileReadString(h);
       if(line=="") continue;
       string f[];
-      int count=StringSplit(line,StringGetCharacter(";",0),f);
-      for(int k=0;k<count;k++) f[k]=TrimQuotes(f[k]);
+      if(!ParseCsvLine(line,f))
+      {
+         invalid++;
+         Print("CS_PUBLISHER | malformed CSV row; cursor held for retry");
+         FileClose(h);
+         return;
+      }
+      int count=ArraySize(f);
       if(count==18 && f[0]=="V3" && f[1]=="EVENT_ID") continue;
       // A partial final CSV row will not have all 18 fields or a valid checksum.
       // It is left unacknowledged and will be read again on the next poll.
-      if(count!=18 || f[0]!="V3") { invalid++; continue; }
+      if(count!=18 || f[0]!="V3") { invalid++; Print("CS_PUBLISHER | invalid V3 row shape; cursor held for retry"); FileClose(h); return; }
       ulong eventId=(ulong)StringToInteger(f[1]);
       if(eventId<=g_cursor) continue;
       if(eventId==0 || (uint)StringToInteger(f[17])!=JournalChecksum(f))
       {
          invalid++;
-         // Never forward a checksum-invalid row. It is not used to create a signal.
-         if(eventId>maxAck) maxAck=eventId;
-         continue;
+         PrintFormat("CS_PUBLISHER | checksum validation failed at EventID=%s; cursor held",(string)eventId);
+         FileClose(h);
+         return;
       }
       int eventType=(int)StringToInteger(f[7]);
       if(!IsPublishableType(eventType))
@@ -243,8 +254,9 @@ void PollJournal()
          StringToInteger(f[14])<=0 || f[15]!="1" || f[8]=="" || f[9]=="")
       {
          invalid++;
-         if(eventId>maxAck) maxAck=eventId;
-         continue;
+         PrintFormat("CS_PUBLISHER | invalid event identity/metadata at EventID=%s; cursor held",(string)eventId);
+         FileClose(h);
+         return;
       }
       int n=ArraySize(batch);
       ArrayResize(batch,n+1);
@@ -256,13 +268,13 @@ void PollJournal()
          bool ok=SendBatch(batch,maxAck);
          if(!ok) return;
          ArrayResize(batch,0);
-         h=FileOpen(InpJournalFile,FILE_READ|FILE_TXT|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_ANSI);
+         h=FileOpen(g_journal_file,FILE_READ|FILE_TXT|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_ANSI);
          if(h==INVALID_HANDLE) return;
          // Continue scanning from the beginning; cursor filters acknowledged rows.
       }
    }
    FileClose(h);
-   if(invalid>0) PrintFormat("CS_PUBLISHER | skipped invalid/partial journal rows=%d; journal not modified",invalid);
+   if(invalid>0) PrintFormat("CS_PUBLISHER | invalid journal rows=%d; cursor was not advanced",invalid);
    if(ArraySize(batch)>0) SendBatch(batch,maxAck);
    else if(maxAck>g_cursor) SaveCursor(maxAck);
 }

@@ -16,7 +16,7 @@ export default async function MentorPage({ searchParams }: Props) {
 
   const { data: profile, error: profileError } = await supabase.from("profiles")
     .select("role,mentor_approved").eq("id", user.id).maybeSingle();
-  if (profileError || !profile) return <SectionPage eyebrow="MENTOR WORKSPACE" title="Mentor access"><p role="alert" className="text-sm text-rose-200">Could not verify account permissions.</p></SectionPage>;
+  if (profileError || !profile) return <SectionPage eyebrow="MENTOR WORKSPACE" title="Mentor access" description="Your mentor workspace permissions could not be verified."><p role="alert" className="text-sm text-rose-200">Could not verify account permissions.</p></SectionPage>;
 
   const { data: application } = await supabase.from("mentor_applications")
     .select("status,submitted_at,reviewed_at,review_note").eq("user_id", user.id).maybeSingle();
